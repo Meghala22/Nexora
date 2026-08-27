@@ -74,4 +74,4 @@ Deploy the repository to Netlify with the included `netlify.toml`. In Netlify si
 
 ### Public backend deployment
 
-`render.yaml` prepares a Docker-based Render web service for the Spring Boot API. Create a managed PostgreSQL database first, then set these Render environment values from its connection details: `SPRING_DATASOURCE_URL` (JDBC URL), `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`. Set `ALLOWED_ORIGINS` to the Netlify URL, for example `https://your-site.netlify.app`. Render generates `JWT_SECRET`; do not replace it with a value stored in Git. The initial public deployment disables Kafka while preserving the event contract and audit behavior; add a managed Kafka endpoint before enabling `NEXORA_EVENTS_ENABLED`.
+`render.yaml` prepares a Docker-based Render web service and a managed PostgreSQL database. Render injects the database connection internally, generates `JWT_SECRET`, and permits the configured Netlify site through CORS. The initial public deployment disables Kafka while preserving the event contract and audit behavior; add a managed Kafka endpoint before enabling `NEXORA_EVENTS_ENABLED`.

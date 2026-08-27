@@ -1,4 +1,7 @@
 spring:
+  datasource:
+    # Render exposes a postgresql:// URL; the JDBC driver requires jdbc:postgresql://.
+    url: jdbc:${DATABASE_URL}
   jpa:
     hibernate:
       ddl-auto: validate
