@@ -74,4 +74,4 @@ Deploy the repository to Netlify with the included `netlify.toml`. In Netlify si
 
 ### Public backend deployment
 
-`render.yaml` prepares a Docker-based Render web service and a managed PostgreSQL database. Render injects the database connection internally, generates `JWT_SECRET`, and permits the configured Netlify site through CORS. The initial public deployment disables Kafka while preserving the event contract and audit behavior; add a managed Kafka endpoint before enabling `NEXORA_EVENTS_ENABLED`.
+`render.yaml` prepares a Docker-based Render web service and a managed PostgreSQL database on Render's free tier. Render injects the database connection internally, generates `JWT_SECRET`, and permits the configured Netlify site through CORS. The initial public deployment disables Kafka while preserving the event contract and audit behavior; add a managed Kafka endpoint before enabling `NEXORA_EVENTS_ENABLED`.
