@@ -1,8 +1,8 @@
 node_modules/
 dist/
 target/
+.angular/
 .idea/
 .vscode/
 .env
 *.log
-
