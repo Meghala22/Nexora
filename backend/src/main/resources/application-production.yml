@@ -1,0 +1,13 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  kafka:
+    listener:
+      auto-startup: false
+
+# Kafka is deliberately disabled in the first public deployment. Enable
+# NEXORA_EVENTS_ENABLED only after supplying a managed Kafka bootstrap URL.
+nexora:
+  events:
+    enabled: ${NEXORA_EVENTS_ENABLED:false}

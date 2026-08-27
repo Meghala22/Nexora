@@ -71,3 +71,7 @@ The composition provides local containers for PostgreSQL, Kafka, backend, and fr
 ### Netlify frontend deployment
 
 Deploy the repository to Netlify with the included `netlify.toml`. In Netlify site settings, set `NEXORA_API_URL` to the public HTTPS address of the deployed Spring Boot API, including `/api/v1` (for example, `https://api.example.com/api/v1`). The build script emits this value into the static runtime config, so no API host is hard-coded in the production bundle. Set the backend `ALLOWED_ORIGINS` to the final Netlify site URL and set a strong managed `JWT_SECRET` before deployment.
+
+### Public backend deployment
+
+`render.yaml` prepares a Docker-based Render web service for the Spring Boot API. Create a managed PostgreSQL database first, then set these Render environment values from its connection details: `SPRING_DATASOURCE_URL` (JDBC URL), `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`. Set `ALLOWED_ORIGINS` to the Netlify URL, for example `https://your-site.netlify.app`. Render generates `JWT_SECRET`; do not replace it with a value stored in Git. The initial public deployment disables Kafka while preserving the event contract and audit behavior; add a managed Kafka endpoint before enabling `NEXORA_EVENTS_ENABLED`.
