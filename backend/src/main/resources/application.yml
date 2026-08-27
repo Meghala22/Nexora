@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: nexora-commercial-operations
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/nexora}
+    username: ${SPRING_DATASOURCE_USERNAME:nexora}
+    password: ${SPRING_DATASOURCE_PASSWORD:nexora}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  flyway:
+    enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+nexora:
+  security:
+    # Override with a secret manager value of at least 32 characters in each deployed environment.
+    jwt-secret: ${JWT_SECRET:replace-this-local-development-secret-with-a-managed-value-2026}
+    jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200}
