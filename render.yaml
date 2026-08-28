@@ -19,6 +19,14 @@ services:
         fromDatabase:
           name: nexora-postgres
           property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: nexora-postgres
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: nexora-postgres
+          property: password
 
 databases:
   - name: nexora-postgres
