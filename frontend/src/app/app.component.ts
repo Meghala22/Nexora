@@ -21,11 +21,13 @@ interface DemoUser { email: string; password: string; displayName: string; role:
   template: `
     @if (!signedIn()) {
       <main class="login-shell">
+        <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="https://cdn.coverr.co/videos/coverr-a-team-prepares-for-a-business-meeting-169/thumbnail?width=1600" aria-hidden="true">
+          <source src="https://cdn.coverr.co/videos/coverr-a-team-prepares-for-a-business-meeting-169/1080p.mp4" type="video/mp4">
+        </video>
+        <div class="hero-video-overlay" aria-hidden="true"></div>
         <section class="login-brand">
           <div class="brand"><span class="brand-mark">N</span><span>NEXORA</span></div>
           <div class="brand-copy"><p class="eyebrow">COMMERCIAL BANKING OPERATIONS</p><h1>Secure operations.<br>Confident decisions.</h1><p>One control plane for customer onboarding, entitlements, and oversight.</p></div>
-          <div class="network" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b><b></b><b></b></div>
-          <div class="people-video" aria-hidden="true"><span class="field"></span><span class="laugh laugh-one">ha</span><span class="laugh laugh-two">ha</span><span class="person person-one"><i></i><em></em><strong></strong></span><span class="person person-two"><i></i><em></em><strong></strong></span><span class="person person-three"><i></i><em></em><strong></strong></span></div>
           <small>Protected by Nexora Secure Access</small>
         </section>
         <section class="login-form"><div class="login-card" [class.registering]="isRegistering()"><p class="eyebrow">{{isRegistering() ? 'CREATE SECURE ACCESS' : 'SECURE SIGN IN'}}</p><h2>{{isRegistering() ? 'Create your account' : 'Welcome back'}}</h2><p class="muted">{{isRegistering() ? 'Set up your secure Nexora workspace credentials.' : 'Use your Nexora credentials to continue.'}}</p>
