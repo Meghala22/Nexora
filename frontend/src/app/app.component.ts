@@ -4,6 +4,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Customer, EventRecord, Role } from './models';
+import { approvals as demoApprovals, customers as demoCustomers, events as demoEvents } from './demo-data';
 import { environment } from '../environments/environment';
 
 type Page = 'dashboard' | 'customers' | 'customer' | 'entitlements' | 'approvals' | 'audit' | 'events' | 'health';
@@ -12,6 +13,7 @@ interface CustomerResponse { id: string; customerNumber: string; legalName: stri
 interface EntitlementResponse { id: string; customerId: string; product: string; permission: string; requestedBy: string; requestedAt: string; status: string; riskLevel: string; correlationId: string; }
 interface AuditResponse { actor: string; actorRole: string; action: string; entityType: string; entityId: string; correlationId: string; occurredAt: string; }
 interface EventResponse { eventId: string; eventType: string; entityId: string; correlationId: string; status: string; processedAt: string; }
+interface DemoUser { email: string; password: string; displayName: string; role: Role; }
 
 @Component({
   selector: 'nx-root', standalone: true, imports: [CommonModule, FormsModule],
@@ -106,7 +108,23 @@ interface EventResponse { eventId: string; eventType: string; entityId: string; 
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  private readonly apiBaseUrl = (window as Window & { NEXORA_API_URL?: string }).NEXORA_API_URL || environment.apiBaseUrl;
+  private readonly apiBaseUrl = ((window as Window & { NEXORA_API_URL?: string }).NEXORA_API_URL || environment.apiBaseUrl).trim();
+  private readonly demoMode = !this.apiBaseUrl;
+  private readonly demoUsers: DemoUser[] = [
+    { email: 'alex.morgan@nexora.demo', password: 'Demo@12345', displayName: 'Alex Morgan', role: 'RELATIONSHIP_MANAGER' },
+    { email: 'sam.taylor@nexora.demo', password: 'Demo@12345', displayName: 'Sam Taylor', role: 'OPERATIONS_MAKER' },
+    { email: 'jordan.lee@nexora.demo', password: 'Demo@12345', displayName: 'Jordan Lee', role: 'APPROVER' },
+    { email: 'admin@nexora.demo', password: 'Demo@12345', displayName: 'Nexora Admin', role: 'ADMIN' },
+    { email: 'audit@nexora.demo', password: 'Demo@12345', displayName: 'Audit Viewer', role: 'AUDITOR' }
+  ];
+  private readonly demoCustomerRecords: Customer[] = demoCustomers.map(customer => ({ ...customer, backendId: customer.id }));
+  private readonly demoApprovalRecords = [...demoApprovals];
+  private readonly demoEventRecords = [...demoEvents];
+  private readonly demoAuditRecords = [
+    { time: 'Today, 10:18 AM', type: 'requested', title: 'ENTITLEMENT REQUESTED', actor: 'Alex Morgan - RELATIONSHIP_MANAGER', detail: 'ENTITLEMENT_REQUEST REQ-49218', request: 'ENTITLEMENT_REQUEST', correlation: 'CORR-849201' },
+    { time: 'Today, 09:54 AM', type: 'published', title: 'CUSTOMER UPDATED', actor: 'System - EVENT_CONSUMER', detail: 'CUSTOMER CUST-001074', request: 'CUSTOMER', correlation: 'CORR-849177' },
+    { time: 'Yesterday', type: 'approved', title: 'CUSTOMER APPROVED', actor: 'Jordan Lee - APPROVER', detail: 'CUSTOMER CUST-001102', request: 'CUSTOMER', correlation: 'CORR-849102' }
+  ];
   constructor(private readonly http: HttpClient) {}
   signedIn = signal(false); collapsed = signal(false); page = signal<Page>('dashboard'); drawer = signal(''); requestStep = signal(1); toast = signal(''); filterStage = signal(''); selectedProduct = signal('Wire Transfers'); selectedEvent = signal<EventRecord | null>(null);
   email = 'alex.morgan@nexora.demo'; password = 'Demo@12345'; confirmPassword = ''; fullName = ''; customerSearch = ''; justification = ''; authError = '';
@@ -128,13 +146,14 @@ export class AppComponent {
   canApprove = computed(() => ['APPROVER','ADMIN'].includes(this.role())); isAdmin = computed(() => this.role()==='ADMIN'); isReadOnly = computed(() => this.role()==='AUDITOR');
   login() {
     this.authError = ''; this.authPending.set(true);
+    if (this.demoMode) { this.demoLogin(); return; }
     this.http.post<AuthResponse>(`${this.apiBaseUrl}/auth/login`, { email: this.email, password: this.password }).subscribe({ next: session => this.startSession(session), error: error => this.finishAuthError(error) });
   }
   passwordRules() { return { length: this.password.length >= 12, upper: /[A-Z]/.test(this.password) && /[a-z]/.test(this.password), number: /\d/.test(this.password) && /[^A-Za-z0-9]/.test(this.password) }; }
   passwordsMatch() { return this.password === this.confirmPassword; }
   canRegister() { const rules = this.passwordRules(); return !!this.fullName.trim() && !!this.email.trim() && rules.length && rules.upper && rules.number && this.passwordsMatch(); }
   switchAccessMode() { this.isRegistering.update(value => !value); this.confirmPassword = ''; this.authError = ''; this.showPassword.set(false); this.showConfirmPassword.set(false); }
-  register() { if (!this.canRegister()) return; this.authError = ''; this.authPending.set(true); this.http.post<AuthResponse>(`${this.apiBaseUrl}/auth/register`, { displayName: this.fullName, email: this.email, password: this.password, confirmPassword: this.confirmPassword }).subscribe({ next: session => { this.startSession(session); this.toast.set('Secure account created. Welcome to Nexora.'); }, error: error => this.finishAuthError(error) }); }
+  register() { if (!this.canRegister()) return; this.authError = ''; this.authPending.set(true); if (this.demoMode) { this.demoRegister(); return; } this.http.post<AuthResponse>(`${this.apiBaseUrl}/auth/register`, { displayName: this.fullName, email: this.email, password: this.password, confirmPassword: this.confirmPassword }).subscribe({ next: session => { this.startSession(session); this.toast.set('Secure account created. Welcome to Nexora.'); }, error: error => this.finishAuthError(error) }); }
   signOut() { this.signedIn.set(false); localStorage.removeItem('nexora.access-token'); this.password = ''; this.confirmPassword = ''; this.authError = ''; }
   private startSession(session: AuthResponse) { localStorage.setItem('nexora.access-token', session.accessToken); const user = { displayName: session.displayName, email: this.email.trim().toLowerCase(), role: session.role }; this.currentUser.set(user); this.role.set(session.role); this.authPending.set(false); this.signedIn.set(true); this.loadCustomers(); this.loadAudit(); if (this.canManageEntitlements() || this.canApprove()) this.loadApprovals(); if (this.isAdmin()) this.loadEvents(); }
   private finishAuthError(error: { error?: { message?: string } }) { this.authPending.set(false); this.authError = error.error?.message || 'Unable to securely process this request. Try again.'; }
@@ -150,6 +169,14 @@ export class AppComponent {
     if (!customerNumber?.trim()) return;
     const industry = window.prompt('Industry');
     if (!industry?.trim()) return;
+    if (this.demoMode) {
+      const customer = { id: customerNumber.trim().toUpperCase(), backendId: customerNumber.trim().toUpperCase(), name: legalName.trim(), industry: industry.trim(), manager: this.currentUser().displayName, risk: 'Medium', stage: 'Submitted', products: 0, status: 'In review', updated: 'Just now' };
+      this.demoCustomerRecords.unshift(customer);
+      this.customers.set([...this.demoCustomerRecords]);
+      this.selectedCustomer.set(customer);
+      this.toast.set(`${customer.name} was created and added to onboarding.`);
+      return;
+    }
     this.http.post<CustomerResponse>(`${this.apiBaseUrl}/customers`, { legalName: legalName.trim(), customerNumber: customerNumber.trim().toUpperCase(), industry: industry.trim() }, { headers: this.authHeaders() }).subscribe({
       next: customer => { this.loadCustomers(); this.toast.set(`${customer.legalName} was created and added to onboarding.`); },
       error: error => this.toast.set(error.error?.message || 'Unable to create this customer. Use a unique CUST-000000 ID.')
@@ -163,17 +190,21 @@ export class AppComponent {
     const customer = this.selectedCustomer() || this.customers()[0];
     if (!customer?.backendId) { this.toast.set('Select a customer before requesting an entitlement.'); return; }
     if (this.justification.trim().length < 20) { this.toast.set('Add a business justification of at least 20 characters.'); this.requestStep.set(3); return; }
+    if (this.demoMode) { this.demoSubmitEntitlement(customer); return; }
     this.http.post<EntitlementResponse>(`${this.apiBaseUrl}/entitlement-requests`, { customerId: customer.backendId, product: this.selectedProduct(), permission: 'RELEASE', justification: this.justification.trim() }, { headers: this.authHeaders() }).subscribe({ next: () => { this.drawer.set(''); this.justification = ''; this.requestStep.set(1); this.toast.set('Entitlement request submitted for independent approval.'); this.loadApprovals(); }, error: error => this.toast.set(error.error?.message || 'Unable to submit the entitlement request.') });
   }
   approve() { this.decideApproval('approve'); }
   reject() { this.decideApproval('reject'); }
   retryEvent() { this.toast.set('Event retry initiated. Processing is underway.'); this.selectedEvent.set({...this.selectedEvent()!, status:'RETRYING'}); }
   private authHeaders() { return new HttpHeaders({ Authorization: `Bearer ${localStorage.getItem('nexora.access-token') || ''}` }); }
-  loadCustomers() { this.http.get<CustomerResponse[]>(`${this.apiBaseUrl}/customers`, { headers: this.authHeaders() }).subscribe({ next: records => { const mapped = records.map(record => this.mapCustomer(record)); this.customers.set(mapped); if (!this.selectedCustomer() && mapped.length) this.selectedCustomer.set(mapped[0]); }, error: () => this.toast.set('Unable to load customers from the API.') }); }
-  loadApprovals() { this.http.get<EntitlementResponse[]>(`${this.apiBaseUrl}/entitlement-requests`, { headers: this.authHeaders() }).subscribe({ next: records => this.approvals.set(records.filter(record => record.status === 'PENDING_APPROVAL').map(record => ({ id: record.id, customer: this.customerName(record.customerId), change: `${record.product} ${record.permission}`, requestedBy: record.requestedBy, risk: record.riskLevel.toLowerCase(), submitted: this.formatDate(record.requestedAt), sla: 'Within SLA', status: 'Awaiting review' }))), error: () => this.approvals.set([]) }); }
-  loadAudit() { this.http.get<AuditResponse[]>(`${this.apiBaseUrl}/audit-events`, { headers: this.authHeaders() }).subscribe({ next: records => this.audit.set(records.map(record => ({ time: this.formatDate(record.occurredAt), type: this.auditType(record.action), title: record.action.replaceAll('_', ' '), actor: `${record.actor} · ${record.actorRole}`, detail: `${record.entityType} ${record.entityId}`, request: record.entityType, correlation: record.correlationId }))), error: () => this.audit.set([]) }); }
-  loadEvents() { this.http.get<EventResponse[]>(`${this.apiBaseUrl}/events`, { headers: this.authHeaders() }).subscribe({ next: records => this.events.set(records.map(record => ({ id: record.eventId, type: record.eventType, customer: this.customerName(record.entityId), topic: 'entitlement-events', partition: 0, offset: 0, status: record.status, retries: 0, timestamp: this.formatDate(record.processedAt), correlation: record.correlationId }))), error: () => this.events.set([]) }); }
-  private decideApproval(decision: 'approve' | 'reject') { const approval = this.selectedApproval(); if (!approval) return; this.http.post<EntitlementResponse>(`${this.apiBaseUrl}/entitlement-requests/${approval.id}/${decision}`, { comment: `${decision === 'approve' ? 'Approved' : 'Rejected'} through the controlled maker-checker workflow.` }, { headers: this.authHeaders() }).subscribe({ next: () => { this.drawer.set(''); this.toast.set(`Request ${decision === 'approve' ? 'approved' : 'rejected'} successfully.`); this.loadApprovals(); this.loadAudit(); if (this.isAdmin()) this.loadEvents(); }, error: error => this.toast.set(error.error?.message || 'This decision could not be completed.') }); }
+  loadCustomers() { if (this.demoMode) { this.customers.set([...this.demoCustomerRecords]); if (!this.selectedCustomer() && this.demoCustomerRecords.length) this.selectedCustomer.set(this.demoCustomerRecords[0]); return; } this.http.get<CustomerResponse[]>(`${this.apiBaseUrl}/customers`, { headers: this.authHeaders() }).subscribe({ next: records => { const mapped = records.map(record => this.mapCustomer(record)); this.customers.set(mapped); if (!this.selectedCustomer() && mapped.length) this.selectedCustomer.set(mapped[0]); }, error: () => this.toast.set('Unable to load customers from the API.') }); }
+  loadApprovals() { if (this.demoMode) { this.approvals.set([...this.demoApprovalRecords]); return; } this.http.get<EntitlementResponse[]>(`${this.apiBaseUrl}/entitlement-requests`, { headers: this.authHeaders() }).subscribe({ next: records => this.approvals.set(records.filter(record => record.status === 'PENDING_APPROVAL').map(record => ({ id: record.id, customer: this.customerName(record.customerId), change: `${record.product} ${record.permission}`, requestedBy: record.requestedBy, risk: record.riskLevel.toLowerCase(), submitted: this.formatDate(record.requestedAt), sla: 'Within SLA', status: 'Awaiting review' }))), error: () => this.approvals.set([]) }); }
+  loadAudit() { if (this.demoMode) { this.audit.set([...this.demoAuditRecords]); return; } this.http.get<AuditResponse[]>(`${this.apiBaseUrl}/audit-events`, { headers: this.authHeaders() }).subscribe({ next: records => this.audit.set(records.map(record => ({ time: this.formatDate(record.occurredAt), type: this.auditType(record.action), title: record.action.replaceAll('_', ' '), actor: `${record.actor} · ${record.actorRole}`, detail: `${record.entityType} ${record.entityId}`, request: record.entityType, correlation: record.correlationId }))), error: () => this.audit.set([]) }); }
+  loadEvents() { if (this.demoMode) { this.events.set([...this.demoEventRecords]); return; } this.http.get<EventResponse[]>(`${this.apiBaseUrl}/events`, { headers: this.authHeaders() }).subscribe({ next: records => this.events.set(records.map(record => ({ id: record.eventId, type: record.eventType, customer: this.customerName(record.entityId), topic: 'entitlement-events', partition: 0, offset: 0, status: record.status, retries: 0, timestamp: this.formatDate(record.processedAt), correlation: record.correlationId }))), error: () => this.events.set([]) }); }
+  private decideApproval(decision: 'approve' | 'reject') { const approval = this.selectedApproval(); if (!approval) return; if (this.demoMode) { const index = this.demoApprovalRecords.findIndex(item => item.id === approval.id); if (index >= 0) this.demoApprovalRecords.splice(index, 1); this.approvals.set([...this.demoApprovalRecords]); this.demoAuditRecords.unshift({ time: 'Just now', type: decision === 'approve' ? 'approved' : 'processed', title: `ENTITLEMENT ${decision.toUpperCase()}D`, actor: `${this.currentUser().displayName} - ${this.role()}`, detail: `ENTITLEMENT_REQUEST ${approval.id}`, request: 'ENTITLEMENT_REQUEST', correlation: `CORR-${Date.now()}` }); this.drawer.set(''); this.toast.set(`Request ${decision === 'approve' ? 'approved' : 'rejected'} successfully.`); return; } this.http.post<EntitlementResponse>(`${this.apiBaseUrl}/entitlement-requests/${approval.id}/${decision}`, { comment: `${decision === 'approve' ? 'Approved' : 'Rejected'} through the controlled maker-checker workflow.` }, { headers: this.authHeaders() }).subscribe({ next: () => { this.drawer.set(''); this.toast.set(`Request ${decision === 'approve' ? 'approved' : 'rejected'} successfully.`); this.loadApprovals(); this.loadAudit(); if (this.isAdmin()) this.loadEvents(); }, error: error => this.toast.set(error.error?.message || 'This decision could not be completed.') }); }
+  private demoLogin() { const account = this.demoUsers.find(user => user.email === this.email.trim().toLowerCase()); if (!account || account.password !== this.password) { this.finishAuthError({ error: { message: 'Use a demo account such as alex.morgan@nexora.demo with password Demo@12345.' } }); return; } this.startSession({ accessToken: `demo-token-${account.role}`, tokenType: 'Bearer', role: account.role, displayName: account.displayName }); this.toast.set('Demo workspace loaded without requesting local-device access.'); }
+  private demoRegister() { if (this.demoUsers.some(user => user.email === this.email.trim().toLowerCase())) { this.finishAuthError({ error: { message: 'This email already exists. Sign in with the existing account.' } }); return; } const account = { email: this.email.trim().toLowerCase(), password: this.password, displayName: this.fullName.trim(), role: 'AUDITOR' as Role }; this.demoUsers.push(account); this.startSession({ accessToken: 'demo-token-auditor', tokenType: 'Bearer', role: account.role, displayName: account.displayName }); this.toast.set('Secure account created with read-only auditor access.'); }
+  private demoSubmitEntitlement(customer: Customer) { const request = { id: `REQ-${Date.now().toString().slice(-5)}`, customer: customer.name, change: `${this.selectedProduct()} RELEASE`, requestedBy: this.currentUser().displayName, risk: 'critical' as const, submitted: 'Just now', sla: 'Within SLA', status: 'Awaiting review' }; this.demoApprovalRecords.unshift(request); this.approvals.set([...this.demoApprovalRecords]); this.demoAuditRecords.unshift({ time: 'Just now', type: 'requested', title: 'ENTITLEMENT REQUESTED', actor: `${this.currentUser().displayName} - ${this.role()}`, detail: `ENTITLEMENT_REQUEST ${request.id}`, request: 'ENTITLEMENT_REQUEST', correlation: `CORR-${Date.now()}` }); this.drawer.set(''); this.justification = ''; this.requestStep.set(1); this.toast.set('Entitlement request submitted for independent approval.'); }
   private mapCustomer(record: CustomerResponse): Customer { return { id: record.customerNumber, backendId: record.id, name: record.legalName, industry: record.industry, manager: 'Relationship team', risk: record.riskLevel, stage: record.onboardingStage, products: 0, status: record.onboardingStage === 'Activated' ? 'Active' : 'In review', updated: this.formatDate(record.updatedAt) }; }
   private customerName(id: string) { return this.customers().find(customer => customer.backendId === id)?.name || id; }
   private formatDate(value: string) { return new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
